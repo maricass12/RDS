@@ -1,0 +1,100 @@
+#Description of what this change includes
+#Revision number
+#Date
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  CloudFormation template to create a VPC spanning at least 3 Availability Zones
+  in us-west-2. VPC name uses format VPC-studentID.
+
+Parameters:
+  StudentID:
+    Type: String
+    Description: "Enter your ECPI student ID"
+
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "VPC-${StudentID}"
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: us-west-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "PublicSubnet1-${StudentID}"
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: us-west-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "PublicSubnet2-${StudentID}"
+
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: us-west-2c
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "PublicSubnet3-${StudentID}"
+  RdsInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      VPCSecurityGroups:
+        - !Ref MyDBSecurityGroup   # <-- Replace with the SG you define for RDS
+      AllocatedStorage: '5'
+      DBInstanceClass: db.t3.micro
+      DBInstanceIdentifier: !Sub "playground-db-${StudentID}"
+      Engine: MySQL
+      MasterUsername: Admin
+      MasterUserPassword: CloudAcademy123!
+      PubliclyAccessible: true
+      DBSubnetGroupName: !Ref MyDBSubnetGroup
+
+  MyDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for RDS"
+      SubnetIds:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+        - !Ref PublicSubnet3
+      DBSubnetGroupName: !Sub "db-subnet-group-${StudentID}"
+
+  MyDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Enable MySQL access"
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0  # (⚠️ Open to all – adjust for production)
+
+Outputs:
+  VPCId:
+    Description: "The ID of the created VPC"
+    Value: !Ref MyVPC
+
+  SubnetIds:
+    Description: "The IDs of the created subnets"
+    Value: !Join [ ",", [ !Ref PublicSubnet1, !Ref PublicSubnet2, !Ref PublicSubnet3 ] ]
